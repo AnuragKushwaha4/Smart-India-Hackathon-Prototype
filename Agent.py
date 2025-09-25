@@ -1,15 +1,16 @@
 import os
 import tempfile
-from dotenv import load_dotenv
-load_dotenv()
-os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGCHAIN_API_KEY")
-os.environ["GROQ_API_KEY"]=os.getenv("GROQ_API_KEY")
-os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGCHAIN_PROJECT")
-os.environ["LANGCHAIN_TRACING_V2"]="true"
-os.environ["HF_API_KEY"]=os.getenv("HF_API_KEY")
-
-
 import streamlit as st
+
+
+
+os.environ["LANGCHAIN_API_KEY"] = st.secrets["LANGCHAIN_API_KEY"]
+os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+os.environ["LANGCHAIN_PROJECT"] = st.secrets["LANGCHAIN_PROJECT"]
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["HF_API_KEY"] = st.secrets["HF_API_KEY"]
+
+
 from langchain.callbacks import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
 llm= ChatGroq(model="llama-3.3-70b-versatile")
