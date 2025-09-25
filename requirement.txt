@@ -1,0 +1,17 @@
+langchain
+langchain-community
+langchain-core
+langchain-groq
+python-dotenv
+bs4
+streamlit
+langchain_openai
+langchain-huggingface
+pypdf
+langchain-chroma
+arxiv
+wikipedia
+duckduckgo-search
+ddgs
+sentence-transformers
+pypdfium2
