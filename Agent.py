@@ -13,7 +13,7 @@ os.environ["HF_API_KEY"] = st.secrets["HF_API_KEY"]
 
 from langchain.callbacks import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
-llm= ChatGroq(model="llama-3.1-8b-instant")
+llm= ChatGroq(model="llama-3.3-70b-versatile")
 
 #Tools creations:
 # 1. Builtin tools:
