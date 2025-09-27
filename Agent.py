@@ -59,7 +59,7 @@ if upload_file:
     retriever_tool = create_retriever_tool(
     retriever,
     "Document_tool",
-    "Use this tool to answer questions using the content of the uploaded webpage. "
+    "Use this tool to answer questions using the content of the uploaded webpage."
     "If the user provides a link, prefer this tool."
 )
 
