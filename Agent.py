@@ -16,6 +16,7 @@ from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuck
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
 from langchain.agents import initialize_agent, AgentType
 
+
 # --- Initialize LLM ---
 llm = ChatGroq(model="llama-3.3-70b-versatile")
 
