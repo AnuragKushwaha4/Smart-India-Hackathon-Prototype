@@ -9,14 +9,12 @@ os.environ["LANGCHAIN_PROJECT"] = st.secrets["LANGCHAIN_PROJECT"]
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["HF_API_KEY"] = st.secrets["HF_API_KEY"]
 
-# --- Updated Imports for new LangChain structure ---
+# --- Imports ---
 from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
-from langchain.agents import initialize_agent, AgentType  # ✅ correct
-
-from langchain.agents import AgentType  # still valid import
+from langchain.agents import initialize_agent, AgentType
 
 # --- Initialize LLM ---
 llm = ChatGroq(model="llama-3.3-70b-versatile")
@@ -68,7 +66,7 @@ if upload_file:
     retriever_tool = create_retriever_tool(
         retriever,
         "Document_tool",
-        "Use this tool to answer questions using the content of the uploaded PDF."
+        "Use this tool to answer questions using the content of the uploaded PDF. "
         "If the user provides a link, prefer this tool."
     )
 
@@ -101,6 +99,6 @@ if prompt := st.chat_input(placeholder="What is Generative AI?"):
     with st.chat_message("assistant"):
         st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
         user_query = st.session_state.message[-1]["content"]
-        response = Agent.run(user_query, callbacks=[st_cb])  # ✅ pass query, not full history
+        response = Agent.run(user_query, callbacks=[st_cb])
         st.session_state.message.append({'role': 'assistant', "content": response})
         st.write(response)
