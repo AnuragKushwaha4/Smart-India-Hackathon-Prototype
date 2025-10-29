@@ -14,7 +14,8 @@ from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
-from langchain_community.agent_toolkits import initialize_agent  # ✅ moved here
+from langchain.agents import initialize_agent, AgentType  # ✅ correct
+
 from langchain.agents import AgentType  # still valid import
 
 # --- Initialize LLM ---
