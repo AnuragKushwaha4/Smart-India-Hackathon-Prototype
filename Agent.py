@@ -14,7 +14,9 @@ from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
-from langchain.agents import create_react_agent, AgentExecutor
+from langchain.agents import AgentExecutor
+from langchain.agents.react.agent import create_react_agent
+
 from langchain import hub
 
 # --- Initialize LLM ---
