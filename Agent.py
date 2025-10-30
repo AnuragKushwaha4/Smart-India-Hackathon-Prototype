@@ -14,10 +14,10 @@ from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
-from langchain.agents import AgentExecutor
-from langchain.agents.react.agent import create_react_agent
-
+from langchain.agents.react import create_react_agent
+from langchain.agents import RunnableAgent
 from langchain import hub
+
 
 # --- Initialize LLM ---
 llm = ChatGroq(model="llama-3.3-70b-versatile")
@@ -78,7 +78,7 @@ if upload_file:
 # --- Session Handling ---
 if "message" not in st.session_state:
     st.session_state["message"] = [
-        {"role": "assistant", "content": "Hi, I am an AI Agent who can search on web and use PDFs. How can I help you?"}
+        {"role": "assistant", "content": "Hi I am AI Agent who can search on web. How can I help you?"}
     ]
 
 for msg in st.session_state.message:
@@ -87,20 +87,21 @@ for msg in st.session_state.message:
 if upload_file:
     st.session_state.message.append({"role": "user", "content": f"Uploaded file: {upload_file.name}"})
 
+
+# --- Agent Creation ---
+prompt = hub.pull("hwchase17/react")
+react_agent = create_react_agent(llm, tools, prompt)
+Agent = RunnableAgent(agent=react_agent, tools=tools)
+
+
 # --- Chat Logic ---
-if prompt := st.chat_input(placeholder="Ask me anything..."):
-    st.session_state.message.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
+if prompt_text := st.chat_input(placeholder="What is Generative AI?"):
+    st.session_state.message.append({"role": "user", "content": prompt_text})
+    st.chat_message("user").write(prompt_text)
 
-    # 🧠 Create ReAct Agent (new LangChain API)
-    react_prompt = hub.pull("hwchase17/react")
-    react_agent = create_react_agent(llm, tools, react_prompt)
-    Agent = AgentExecutor(agent=react_agent, tools=tools, verbose=True, handle_parsing_errors=True)
-
-    # Run the agent
     with st.chat_message("assistant"):
         st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
-        response = Agent.invoke({"input": prompt}, callbacks=[st_cb])
-        answer = response.get("output", "Sorry, I couldn’t find an answer.")
-        st.session_state.message.append({'role': 'assistant', "content": answer})
-        st.write(answer)
+        response = Agent.invoke({"input": prompt_text}, callbacks=[st_cb])
+        output = response.get("output", "No response generated.")
+        st.session_state.message.append({'role': 'assistant', "content": output})
+        st.write(output)
