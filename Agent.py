@@ -14,7 +14,7 @@ from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
 
-from langchain.agents.react.base import create_react_agent
+from langchain.agents import initialize_agent, Tool, AgentType
 
 # PDF processing imports
 from langchain_community.document_loaders import PyPDFium2Loader
@@ -34,7 +34,11 @@ wikipedia = WikipediaQueryRun(api_wrapper=wikiAPI)
 arxiv = ArxivQueryRun(api_wrapper=arxivAPI)
 search = DuckDuckGoSearchResults(name="Search_tool")
 
-tools = [wikipedia, arxiv, search]
+tools = [
+    Tool(name="Wikipedia", func=wikipedia.run, description="Search Wikipedia"),
+    Tool(name="Arxiv", func=arxiv.run, description="Search Arxiv"),
+    Tool(name="DuckDuckGo", func=search.run, description="Search web using DuckDuckGo")
+]
 
 # --- Streamlit UI ---
 st.title("AI Agent")
@@ -67,7 +71,7 @@ if upload_file:
     retriever_tool = create_retriever_tool(
         retriever,
         "Document_tool",
-        "Use this tool to answer questions using the content of the uploaded PDF. Prefer this tool if user provides a PDF."
+        "Use this tool to answer questions using the content of the uploaded PDF."
     )
     tools.insert(0, retriever_tool)
 
@@ -84,7 +88,7 @@ if upload_file:
     st.session_state.messages.append({"role": "user", "content": f"Uploaded file: {upload_file.name}"})
 
 # --- Agent Creation ---
-react_agent = create_react_agent(llm, tools)
+agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
 # --- Chat Logic ---
 if prompt_text := st.chat_input(placeholder="Ask me anything..."):
@@ -94,9 +98,9 @@ if prompt_text := st.chat_input(placeholder="Ask me anything..."):
     with st.chat_message("assistant"):
         st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
         try:
-            response = react_agent.invoke({"input": prompt_text}, callbacks=[st_cb])
-            output = response.get("output", "No response generated.")
+            output = agent.run(input=prompt_text, callbacks=[st_cb])
         except Exception as e:
             output = f"⚠️ Error: {e}"
         st.session_state.messages.append({'role': 'assistant', "content": output})
         st.write(output)
+
