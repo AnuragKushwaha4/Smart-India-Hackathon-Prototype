@@ -1,14 +1,15 @@
-
 import os
 import tempfile
 import streamlit as st
 from dotenv import load_dotenv
 load_dotenv()
-os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGCHAIN_API_KEY")
-os.environ["GROQ_API_KEY"]=os.getenv("GROQ_API_KEY")
-os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGCHAIN_PROJECT")
-os.environ["LANGCHAIN_TRACING_V2"]="true"
-os.environ["HF_API_KEY"]=os.getenv("HF_API_KEY")
+
+# --- Set environment variables ---
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT")
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["HF_API_KEY"] = os.getenv("HF_API_KEY")
 
 # --- Imports ---
 from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
@@ -79,27 +80,36 @@ if "message" not in st.session_state:
         {"role": "Assistant", "content": "Hi I am AI Agent who can search on web. How can I help you?"}
     ]
 
+# Display previous messages
 for msg in st.session_state.message:
     st.chat_message(msg["role"]).write(msg["content"])
 
 if upload_file:
     st.session_state.message.append({"role": "user", "content": f"Uploaded file: {upload_file.name}"})
 
+# --- Track processed messages to avoid repeated API calls ---
+if "processed_messages" not in st.session_state:
+    st.session_state.processed_messages = set()
+
 # --- Chat Logic ---
 if prompt := st.chat_input(placeholder="What is Generative AI?"):
     st.session_state.message.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
-    Agent = initialize_agent(
-        tools,
-        llm,
-        agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-        handle_parsing_errors=True
-    )
+    message_id = len(st.session_state.message) - 1
+    if message_id not in st.session_state.processed_messages:
+        Agent = initialize_agent(
+            tools,
+            llm,
+            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,
+            handle_parsing_errors=True
+        )
 
-    with st.chat_message("assistant"):
-        st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
-        user_query = st.session_state.message[-1]["content"]
-        response = Agent.run(user_query, callbacks=[st_cb])
-        st.session_state.message.append({'role': 'assistant', "content": response})
-        st.write(response)
+        with st.chat_message("assistant"):
+            st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
+            user_query = st.session_state.message[message_id]["content"]
+            response = Agent.run(user_query, callbacks=[st_cb])
+            st.session_state.message.append({'role': 'assistant', "content": response})
+            st.write(response)
+
+        st.session_state.processed_messages.add(message_id)
