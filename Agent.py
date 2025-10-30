@@ -15,7 +15,7 @@ from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
 # This is the NEW, correct import
-from langchain.agents import create_react_agent
+from langchain.agents import create_agent
 from langchain.agents import RunnableAgent
 from langchain import hub
 
@@ -91,7 +91,7 @@ if upload_file:
 
 # --- Agent Creation ---
 prompt_template = hub.pull("hwchase17/react")
-react_agent = create_react_agent(llm, tools, prompt=prompt_template)
+react_agent = create_agent(llm, tools, prompt=prompt_template)
 Agent = RunnableAgent(agent=react_agent, tools=tools)
 
 # --- Chat Logic ---
