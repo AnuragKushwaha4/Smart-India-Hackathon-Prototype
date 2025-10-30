@@ -89,10 +89,9 @@ if upload_file:
 
 
 # --- Agent Creation ---
-prompt = hub.pull("hwchase17/react")
-react_agent = create_react_agent(llm, tools, prompt)
+prompt_template = hub.pull("hwchase17/react")
+react_agent = create_react_agent(llm, tools, prompt=prompt_template)
 Agent = RunnableAgent(agent=react_agent, tools=tools)
-
 
 # --- Chat Logic ---
 if prompt_text := st.chat_input(placeholder="What is Generative AI?"):
@@ -101,7 +100,10 @@ if prompt_text := st.chat_input(placeholder="What is Generative AI?"):
 
     with st.chat_message("assistant"):
         st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
-        response = Agent.invoke({"input": prompt_text}, callbacks=[st_cb])
-        output = response.get("output", "No response generated.")
+        try:
+            response = Agent.invoke({"input": prompt_text}, callbacks=[st_cb])
+            output = response.get("output", "No response generated.")
+        except Exception as e:
+            output = f"⚠️ Error: {e}"
         st.session_state.message.append({'role': 'assistant', "content": output})
         st.write(output)
