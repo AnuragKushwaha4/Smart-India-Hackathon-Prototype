@@ -14,7 +14,8 @@ from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain_groq import ChatGroq
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
-from langchain.agents.react import create_react_agent
+# This is the NEW, correct import
+from langchain.agents import create_react_agent
 from langchain.agents import RunnableAgent
 from langchain import hub
 
