@@ -1,106 +1,106 @@
 import os
-import tempfile
 import streamlit as st
 
-# --- Environment Setup ---
 os.environ["LANGCHAIN_API_KEY"] = st.secrets["LANGCHAIN_API_KEY"]
 os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
-os.environ["HF_API_KEY"] = st.secrets["HF_API_KEY"]
+os.environ["LANGCHAIN_PROJECT"] = st.secrets["LANGCHAIN_PROJECT"]
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["HF_API_KEY"] = st.secrets["HF_API_KEY"]
 
-# --- Imports ---
-from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
-from langchain_groq import ChatGroq
-from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuckGoSearchResults
-from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
 
-from langchain.agents import initialize_agent, Tool, AgentType
-
-# PDF processing imports
-from langchain_community.document_loaders import PyPDFium2Loader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain.tools.retriever import create_retriever_tool
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.retrieval import create_retrieval_chain
+from langchain.chains.history_aware_retriever import create_history_aware_retriever
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
+from langchain_groq import ChatGroq
 
-# --- Initialize LLM ---
-llm = ChatGroq(model="llama-3.3-70b-versatile")
+st.title("RAG Document With Memory History")
+session_id = st.text_input("Session State",value="Default")
 
-# --- Built-in Tools ---
-wikiAPI = WikipediaAPIWrapper(doc_content_chars_max=200, top_k_results=1)
-arxivAPI = ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=200)
+if "store" not in st.session_state:
+    st.session_state.store={}
 
-wikipedia = WikipediaQueryRun(api_wrapper=wikiAPI)
-arxiv = ArxivQueryRun(api_wrapper=arxivAPI)
-search = DuckDuckGoSearchResults(name="Search_tool")
+upload_file= st.file_uploader("Upload File:",type="pdf",accept_multiple_files=True)
 
-tools = [
-    Tool(name="Wikipedia", func=wikipedia.run, description="Search Wikipedia"),
-    Tool(name="Arxiv", func=arxiv.run, description="Search Arxiv"),
-    Tool(name="DuckDuckGo", func=search.run, description="Search web using DuckDuckGo")
-]
-
-# --- Streamlit UI ---
-st.title("AI Agent")
-st.sidebar.title("Hello..")
-st.sidebar.write(
-    "I’m your AI Assistant, an intelligent AI agent designed to help you navigate university resources, "
-    "answer academic questions, and provide insights from uploaded study materials or official documents. "
-    "You can ask me about courses, assignments, research papers, or any information from AUM’s website, "
-    "and I’ll give you concise, context-aware answers. How can I assist you today?"
-)
-
-upload_file = st.file_uploader("Upload PDF File:", type="pdf", accept_multiple_files=False)
-
-# --- PDF File Processing ---
 if upload_file:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-        tmp_file.write(upload_file.getbuffer())
-        tmp_path = tmp_file.name
+    llm= ChatGroq(model="llama-3.3-70b-versatile")
+    document =[]
+    for uploaded_files in upload_file:
+        path =f"./Resources/temp.pdf"
+        with open(path,"wb") as f:
+            f.write(uploaded_files.getvalue())
+        loader= PyPDFLoader(path)
+        docs = loader.load()
+        document.extend(docs)
 
-    loader = PyPDFium2Loader(tmp_path)
-    docs = loader.load()
+    splitter =RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=100)
+    splited_docs = splitter.split_documents(documents=document)
+    embeddings =HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    vector=Chroma.from_documents(documents=splited_docs,embedding=embeddings,)
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    splited_docs = splitter.split_documents(docs)
+    retriever = vector.as_retriever()
 
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = Chroma.from_documents(splited_docs, embeddings)
-    retriever = vectorstore.as_retriever()
-
-    retriever_tool = create_retriever_tool(
-        retriever,
-        "Document_tool",
-        "Use this tool to answer questions using the content of the uploaded PDF."
+    contextualize_q_system_prompt=(
+            "Given a chat history and the latest user question"
+            "which might reference context in the chat history, "
+            "formulate a standalone question which can be understood "
+            "without the chat history. Do NOT answer the question, "
+            "just reformulate it if needed and otherwise return it as is."
+        )
+    history_aware_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system",contextualize_q_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("user","{input}")
+        ]
     )
-    tools.insert(0, retriever_tool)
 
-# --- Session Handling ---
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! I am your AI Agent. How can I help you today?"}
-    ]
+    retriever_with_message_history = create_history_aware_retriever(llm=llm,retriever=retriever,prompt=history_aware_prompt)
 
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
 
-if upload_file:
-    st.session_state.messages.append({"role": "user", "content": f"Uploaded file: {upload_file.name}"})
+    systemPrompt=(
+                "You are an assistant for question-answering tasks. "
+                "Use the following pieces of retrieved context to answer "
+                "the question. If you don't know the answer, say that you "
+                "don't know. Use three sentences maximum and keep the "
+                "answer concise."
+                "\n\n"
+                "{context}"
+            )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system",systemPrompt),
+            MessagesPlaceholder("chat_history"),
+            ("user","{input}")
+        ]
+    )
+    document_chain = create_stuff_documents_chain(prompt=prompt,llm=llm)
+    ragChain = create_retrieval_chain(retriever_with_message_history,document_chain)
 
-# --- Agent Creation ---
-agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
-
-# --- Chat Logic ---
-if prompt_text := st.chat_input(placeholder="Ask me anything..."):
-    st.session_state.messages.append({"role": "user", "content": prompt_text})
-    st.chat_message("user").write(prompt_text)
-
-    with st.chat_message("assistant"):
-        st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
-        try:
-            output = agent.run(input=prompt_text, callbacks=[st_cb])
-        except Exception as e:
-            output = f"⚠️ Error: {e}"
-        st.session_state.messages.append({'role': 'assistant', "content": output})
-        st.write(output)
-
+    def getsessionHistory(session_id:str)->BaseChatMessageHistory:
+        if session_id not in st.session_state.store:
+            st.session_state.store[session_id]=ChatMessageHistory()
+        return st.session_state.store[session_id]
+    
+    Converstionalchain =RunnableWithMessageHistory(
+        ragChain,getsessionHistory,
+        input_messages_key="input",
+        output_messages_key="answer",
+        history_messages_key="chat_history"
+    )
+    input_text=st.text_input("Enter your Query..")
+    if input_text:
+        res=Converstionalchain.invoke(
+            {"input":input_text},
+            config={
+                    "configurable": {"session_id":session_id}
+                }
+        )
+        st.write(res['answer'])
